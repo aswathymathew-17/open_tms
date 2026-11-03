@@ -137,6 +137,31 @@ export async function tenderRoutes(server: FastifyInstance) {
     }
   });
 
+  // Reject one bid with a reason the carrier can read
+  server.post('/api/v1/tenders/:id/bids/:bidId/reject', {
+    schema: {
+      tags: ['Tenders'],
+      summary: 'Reject a bid and give the carrier the reason',
+      body: {
+        type: 'object',
+        required: ['reason'],
+        properties: {
+          reason: { type: 'string', minLength: 1, maxLength: 500 },
+        },
+      },
+    },
+  }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id, bidId } = req.params as { id: string; bidId: string };
+    const { reason } = z.object({ reason: z.string().min(1).max(500) }).parse((req as any).body);
+    try {
+      const tender = await tenderService.rejectBid(id, bidId, reason, req.orgId!);
+      return { data: tender, error: null };
+    } catch (err: any) {
+      reply.code(400);
+      return { data: null, error: err.message };
+    }
+  });
+
   // Cancel tender
   server.post('/api/v1/tenders/:id/cancel', {
     schema: {

@@ -258,6 +258,7 @@ export async function carrierPortalRoutes(server: FastifyInstance) {
         outcome,
         bidRate: bid?.rate ?? null,
         bidStatus: bid?.status ?? null,
+        rejectionReason: bid?.rejectionReason ?? null,
         tenderStatus: offer.tender?.status,
         tenderReference: offer.tender?.reference,
         route: offer.tender?.shipment

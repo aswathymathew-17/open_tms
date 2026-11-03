@@ -34,6 +34,7 @@ export interface ITenderService {
   openTender(tenderId: string, orgId: string): Promise<TenderWithRelations>;
   submitBid(input: SubmitBidInput, orgId: string): Promise<any>;
   awardTender(tenderId: string, bidId: string, orgId: string): Promise<TenderWithRelations>;
+  rejectBid(tenderId: string, bidId: string, reason: string, orgId: string): Promise<TenderWithRelations>;
   cancelTender(tenderId: string, orgId: string): Promise<TenderWithRelations>;
   declineTenderOffer(tenderOfferId: string, carrierId: string, orgId: string): Promise<void>;
   checkExpiredOffers(): Promise<number>;
@@ -213,6 +214,27 @@ export class TenderService implements ITenderService {
       where: { id: tender.shipmentId, orgId },
       data: { carrierId: winningBid.carrierId },
     });
+
+    return (await this.tenderRepo.findById(tenderId, orgId))!;
+  }
+
+  // Turn down one submitted bid and say why; the tender itself stays open for other bids or a re-tender.
+  async rejectBid(tenderId: string, bidId: string, reason: string, orgId: string): Promise<TenderWithRelations> {
+    const tender = await this.tenderRepo.findById(tenderId, orgId);
+    if (!tender) throw new Error('Tender not found');
+    if (!['open', 'evaluating'].includes(tender.status)) {
+      throw new Error('Tender is not in a state that can reject bids');
+    }
+    const bid = await this.tenderRepo.findBidById(bidId, orgId);
+    if (!bid) throw new Error('Bid not found');
+    if ((bid as any).tenderId !== tenderId) throw new Error('Bid does not belong to this tender');
+    if (bid.status !== 'submitted') throw new Error('Only a submitted bid can be rejected');
+
+    await this.tenderRepo.updateBid(bidId, orgId, {
+      status: 'rejected',
+      respondedAt: new Date(),
+      rejectionReason: reason,
+    } as any);
 
     return (await this.tenderRepo.findById(tenderId, orgId))!;
   }
