@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gavel, Inbox, Loader2, Receipt, ReceiptText, Trophy } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 import { API_URL } from '../../api';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { bidStatusLabel, bidStatusVariant } from './bidStatus';
 
 import {
   getCarrierToken as _getCarrierToken,
@@ -64,30 +65,16 @@ interface Bid {
   id: string;
   rate: number;
   status: string;
+  rejectionReason: string | null;
   submittedAt: string;
   tender: { id: string; reference: string; status: string };
 }
-
-type StatusVariant = 'success' | 'info' | 'warning' | 'destructive' | 'muted' | 'secondary';
-
-function bidStatusVariant(s: string): StatusVariant {
-  if (s === 'accepted') return 'success';
-  if (s === 'rejected') return 'destructive';
-  return 'info';
-}
-
-const STAT_TONES = {
-  primary: 'bg-primary/10 text-primary',
-  warning: 'bg-warning/15 text-warning',
-  success: 'bg-success/15 text-success',
-} as const;
 
 export default function CarrierDashboard() {
   const [offers, setOffers] = useState<TenderOffer[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const user = getCarrierUser();
 
   useEffect(() => {
     if (!getCarrierToken()) {
@@ -114,112 +101,96 @@ export default function CarrierDashboard() {
   }
 
   const activeOffers = offers.filter(o => ['sent', 'viewed'].includes(o.status));
-  const submittedBids = bids.filter(b => b.status === 'submitted');
-  const wonBids = bids.filter(b => b.status === 'accepted');
+  const count = (status: string) => bids.filter(b => b.status === status).length;
 
   const stats = [
-    { tone: 'primary' as const, icon: Gavel, label: 'Active tenders', value: activeOffers.length },
-    { tone: 'warning' as const, icon: Receipt, label: 'Pending bids', value: submittedBids.length },
-    { tone: 'success' as const, icon: Trophy, label: 'Loads won', value: wonBids.length },
+    { label: 'Open tenders', value: activeOffers.length, to: null },
+    { label: 'Pending bids', value: count('submitted'), to: '/carrier-portal/bids?status=submitted' },
+    { label: 'Won', value: count('accepted'), to: '/carrier-portal/bids?status=accepted' },
+    { label: 'Not accepted', value: count('rejected'), to: '/carrier-portal/bids?status=rejected' },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.name || 'Carrier'}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{user.carrierName}</p>
-      </div>
+    <div className="space-y-5">
+      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <Card className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden sm:grid-cols-4 sm:divide-y-0">
         {stats.map(s => {
-          const Icon = s.icon;
-          return (
-            <Card key={s.label}>
-              <CardContent className="p-6">
-                <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', STAT_TONES[s.tone])}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="mt-4 text-3xl font-bold tracking-tight">{s.value}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{s.label}</div>
-              </CardContent>
-            </Card>
+          const inner = (
+            <>
+              <div className="text-2xl font-semibold tabular-nums tracking-tight">{s.value}</div>
+              <div className="text-sm text-muted-foreground">{s.label}</div>
+            </>
+          );
+          return s.to ? (
+            <Link key={s.label} to={s.to} className="p-5 hover:bg-muted/50">
+              {inner}
+            </Link>
+          ) : (
+            <div key={s.label} className="p-5">
+              {inner}
+            </div>
           );
         })}
-      </div>
+      </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Gavel className="h-5 w-5 text-primary" />
-            Active tenders
-          </CardTitle>
+        <CardHeader className="border-b border-border py-4">
+          <CardTitle className="text-sm font-semibold">Open tenders</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {activeOffers.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground">
-              <Inbox className="h-8 w-8" />
-              <h3 className="text-base font-medium">No active tenders at this time</h3>
-            </div>
+            <div className="p-5 text-sm text-muted-foreground">No open tenders.</div>
           ) : (
-            <div className="grid gap-3">
-              {activeOffers.map(offer => {
-                const t = offer.tender;
-                const timeLeft = offer.expiresAt
-                  ? Math.max(0, Math.floor((new Date(offer.expiresAt).getTime() - Date.now()) / 60000))
-                  : null;
-                return (
-                  <div
-                    key={offer.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4"
-                  >
-                    <div>
-                      <div className="font-semibold">{t.reference}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {t.shipment.origin.city}{t.shipment.origin.state ? `, ${t.shipment.origin.state}` : ''}
-                        {' -> '}
-                        {t.shipment.destination.city}{t.shipment.destination.state ? `, ${t.shipment.destination.state}` : ''}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {t.equipmentType || 'No equipment specified'}
-                        {t.targetRate ? ` | Target: $${t.targetRate.toLocaleString()}` : ''}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {timeLeft !== null && (
-                        <div
-                          className={cn(
-                            'text-sm font-semibold',
-                            timeLeft < 30 ? 'text-destructive' : 'text-muted-foreground',
-                          )}
-                        >
-                          {timeLeft > 60 ? `${Math.floor(timeLeft / 60)}h ${timeLeft % 60}m` : `${timeLeft}m`} left
-                        </div>
-                      )}
-                      <Button variant="gradient" size="sm" asChild>
-                        <Link to={`/carrier-portal/tenders/${t.id}`}>View &amp; bid</Link>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tender</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead>Offered rate</TableHead>
+                  <TableHead>Respond within</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeOffers.map(offer => {
+                  const t = offer.tender;
+                  const mins = offer.expiresAt
+                    ? Math.max(0, Math.floor((new Date(offer.expiresAt).getTime() - Date.now()) / 60000))
+                    : null;
+                  return (
+                    <TableRow key={offer.id}>
+                      <TableCell className="font-medium">{t.reference}</TableCell>
+                      <TableCell className="text-sm">
+                        {t.shipment.origin.city} to {t.shipment.destination.city}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {t.targetRate ? `$${t.targetRate.toLocaleString()}` : '-'}
+                      </TableCell>
+                      <TableCell className={cn('text-sm', mins !== null && mins < 30 && 'text-destructive')}>
+                        {mins === null ? '-' : mins > 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" asChild>
+                          <Link to={`/carrier-portal/tenders/${t.id}`}>Respond</Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ReceiptText className="h-5 w-5 text-warning" />
-            Recent bids
-          </CardTitle>
+        <CardHeader className="border-b border-border py-4">
+          <CardTitle className="text-sm font-semibold">Recent bids</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {bids.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground">
-              <ReceiptText className="h-8 w-8" />
-              <h3 className="text-base font-medium">No bids submitted yet</h3>
-            </div>
+            <div className="p-5 text-sm text-muted-foreground">No bids.</div>
           ) : (
             <Table>
               <TableHeader>
@@ -231,14 +202,23 @@ export default function CarrierDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bids.slice(0, 10).map(b => (
+                {bids.slice(0, 6).map(b => (
                   <TableRow key={b.id}>
-                    <TableCell className="font-semibold">{b.tender.reference}</TableCell>
-                    <TableCell className="font-bold">${b.rate.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Badge variant={bidStatusVariant(b.status)}>{b.status}</Badge>
+                    <TableCell className="font-medium">
+                      <Link to={`/carrier-portal/tenders/${b.tender.id}`} className="hover:underline">
+                        {b.tender.reference}
+                      </Link>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{new Date(b.submittedAt).toLocaleString()}</TableCell>
+                    <TableCell className="tabular-nums">${b.rate.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant={bidStatusVariant(b.status)}>{bidStatusLabel(b.status)}</Badge>
+                      {b.rejectionReason && (
+                        <div className="mt-1 max-w-md text-xs text-destructive">{b.rejectionReason}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(b.submittedAt).toLocaleString()}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

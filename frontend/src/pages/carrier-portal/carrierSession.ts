@@ -12,6 +12,7 @@ export interface CarrierSessionUser {
 const store = createPortalSessionStore<CarrierSessionUser>(
   'carrier',
   (u): u is CarrierSessionUser => !!u && typeof u === 'object' && typeof u.carrierId === 'string',
+  { perTab: true }, // each tab has its own carrier session, so carriers never share a sign-in
 );
 
 export const saveCarrierSession = store.save;

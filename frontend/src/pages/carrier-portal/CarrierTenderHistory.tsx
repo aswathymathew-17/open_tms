@@ -22,6 +22,7 @@ interface OfferHistory {
   outcome: string;
   bidRate: number | null;
   bidStatus: string | null;
+  rejectionReason: string | null;
   tenderStatus: string;
   tenderReference: string;
   route: string | null;
@@ -55,8 +56,8 @@ const outcomeVariants: Record<string, StatusVariant> = {
 
 const outcomeLabels: Record<string, string> = {
   won: 'Won',
-  lost: 'Lost',
-  pending: 'Bid Pending',
+  lost: 'Not accepted',
+  pending: 'Pending',
   active: 'Active',
   expired: 'Expired',
   cancelled: 'Cancelled',
@@ -201,7 +202,7 @@ export default function CarrierTenderHistory() {
                 </TableCell>
               </TableRow>
             ) : filtered.map(o => {
-              const clickable = ['active', 'pending'].includes(o.outcome);
+              const clickable = ['active', 'pending', 'won', 'lost'].includes(o.outcome);
               return (
                 <TableRow
                   key={o.id}
@@ -220,6 +221,9 @@ export default function CarrierTenderHistory() {
                     <Badge variant={outcomeVariants[o.outcome] || 'secondary'}>
                       {outcomeLabels[o.outcome] || o.outcome}
                     </Badge>
+                    {o.rejectionReason && (
+                      <div className="mt-1 max-w-xs text-xs text-destructive">{o.rejectionReason}</div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={tenderStatusVariant(o.tenderStatus)}>{o.tenderStatus}</Badge>

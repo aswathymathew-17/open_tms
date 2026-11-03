@@ -10,17 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { bidStatusLabel, bidStatusVariant } from './bidStatus';
 
 const TEXTAREA_CLASS =
   'flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
-
-type StatusVariant = 'success' | 'info' | 'warning' | 'destructive' | 'muted' | 'secondary';
-
-function bidStatusVariant(s: string): StatusVariant {
-  if (s === 'accepted') return 'success';
-  if (s === 'rejected') return 'destructive';
-  return 'info';
-}
 
 export default function CarrierTenderView() {
   const { id } = useParams<{ id: string }>();
@@ -80,7 +73,7 @@ export default function CarrierTenderView() {
     if (json.error) {
       setError(json.error);
     } else {
-      setSuccess('Bid submitted successfully!');
+      setSuccess('Bid submitted.');
       await fetchTender();
     }
     setSubmitting(false);
@@ -118,7 +111,7 @@ export default function CarrierTenderView() {
   }
 
   const { tender, offer } = data;
-  const existingBid = offer?.bids?.find((b: any) => b.status === 'submitted' || b.status === 'accepted');
+  const existingBid = offer?.bids?.find((b: any) => ['submitted', 'accepted', 'rejected'].includes(b.status));
   const canBid = ['sent', 'viewed'].includes(offer?.status) && !existingBid && tender.status === 'open';
   const timeLeft = offer?.expiresAt
     ? Math.max(0, Math.floor((new Date(offer.expiresAt).getTime() - Date.now()) / 60000))
@@ -128,10 +121,10 @@ export default function CarrierTenderView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{tender.reference}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{tender.reference}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {tender.shipment.origin.city}{tender.shipment.origin.state ? `, ${tender.shipment.origin.state}` : ''}
-            {' -> '}
+            {' to '}
             {tender.shipment.destination.city}{tender.shipment.destination.state ? `, ${tender.shipment.destination.state}` : ''}
           </p>
         </div>
@@ -161,7 +154,7 @@ export default function CarrierTenderView() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Shipment details</CardTitle>
+            <CardTitle className="text-sm font-semibold">Shipment</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 text-sm">
@@ -184,7 +177,7 @@ export default function CarrierTenderView() {
               {tender.equipmentType && <div><strong>Equipment:</strong> {tender.equipmentType}</div>}
               {tender.specialInstructions && (
                 <div className="mt-2 rounded-md bg-muted/50 p-3">
-                  <strong>Special instructions:</strong>
+                  <strong>Instructions:</strong>
                   <br />
                   {tender.specialInstructions}
                 </div>
@@ -197,15 +190,15 @@ export default function CarrierTenderView() {
           {existingBid ? (
             <>
               <CardHeader>
-                <CardTitle>Your bid</CardTitle>
+                <CardTitle className="text-sm font-semibold">Your bid</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center gap-3 py-6 text-center">
                   <div className="text-4xl font-bold tracking-tight">${existingBid.rate.toLocaleString()}</div>
-                  <Badge variant={bidStatusVariant(existingBid.status)}>{existingBid.status}</Badge>
-                  {existingBid.status === 'accepted' && (
-                    <div className="mt-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
-                      Congratulations! Your bid was accepted.
+                  <Badge variant={bidStatusVariant(existingBid.status)}>{bidStatusLabel(existingBid.status)}</Badge>
+                  {existingBid.status === 'rejected' && existingBid.rejectionReason && (
+                    <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {existingBid.rejectionReason}
                     </div>
                   )}
                 </div>
@@ -214,12 +207,12 @@ export default function CarrierTenderView() {
           ) : canBid ? (
             <>
               <CardHeader>
-                <CardTitle>Submit your bid</CardTitle>
+                <CardTitle className="text-sm font-semibold">Respond</CardTitle>
               </CardHeader>
               <CardContent>
                 {tender.targetRate && (
                   <div className="mb-4 rounded-md bg-muted/50 px-3 py-2 text-center text-sm">
-                    Target rate: <strong>${tender.targetRate.toLocaleString()}</strong>
+                    Offered rate: <strong>${tender.targetRate.toLocaleString()}</strong>
                   </div>
                 )}
                 <form onSubmit={handleBid} className="space-y-4">
@@ -286,7 +279,7 @@ export default function CarrierTenderView() {
           ) : (
             <>
               <CardHeader>
-                <CardTitle>Tender status</CardTitle>
+                <CardTitle className="text-sm font-semibold">Status</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="py-6 text-center text-sm text-muted-foreground">

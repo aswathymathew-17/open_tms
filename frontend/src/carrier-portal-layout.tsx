@@ -14,8 +14,8 @@ import {
 
 const NAV: { to: string; label: string; end?: boolean }[] = [
   { to: '/carrier-portal', label: 'Dashboard', end: true },
-  { to: '/carrier-portal/history', label: 'Tender History' },
-  { to: '/carrier-portal/bids', label: 'Bid History' },
+  { to: '/carrier-portal/history', label: 'Tenders' },
+  { to: '/carrier-portal/bids', label: 'Bids' },
   { to: '/carrier-portal/profile', label: 'Profile' },
 ];
 
@@ -76,7 +76,7 @@ export function CarrierPortalLayout() {
           )}
           <Button variant="outline" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
-            Logout
+            Sign out
           </Button>
         </nav>
       </header>

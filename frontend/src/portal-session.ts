@@ -51,13 +51,47 @@ export interface PortalSessionStore<U> {
  * @param prefix Cookie/localStorage key prefix (e.g. "customer", "carrier")
  * @param userValid Optional sanity check on the parsed user payload; if it
  *                  returns false the helper treats storage as empty.
+ * @param options   `perTab: true` keeps the session in this tab only
+ *                  (sessionStorage, no cookie), so two users can be signed in
+ *                  side by side in different tabs of one browser.
  */
 export function createPortalSessionStore<U>(
   prefix: string,
   userValid: (u: any) => u is U = (u): u is U => !!u && typeof u === 'object',
+  options: { perTab?: boolean } = {},
 ): PortalSessionStore<U> {
   const TOKEN_KEY = `${prefix}_token`;
   const USER_KEY = `${prefix}_user`;
+  if (options.perTab) {
+    const tab = (): Storage | null => {
+      try {
+        return window.sessionStorage;
+      } catch {
+        return null;
+      }
+    };
+    return {
+      save(token: string, user: U): void {
+        tab()?.setItem(TOKEN_KEY, token);
+        tab()?.setItem(USER_KEY, JSON.stringify(user));
+      },
+      getToken(): string {
+        return tab()?.getItem(TOKEN_KEY) || '';
+      },
+      getUser(): U | null {
+        try {
+          const parsed = JSON.parse(tab()?.getItem(USER_KEY) || 'null');
+          return userValid(parsed) ? parsed : null;
+        } catch {
+          return null;
+        }
+      },
+      clear(): void {
+        tab()?.removeItem(TOKEN_KEY);
+        tab()?.removeItem(USER_KEY);
+      },
+    };
+  }
 
   return {
     save(token: string, user: U): void {
