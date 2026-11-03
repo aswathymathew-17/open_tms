@@ -225,6 +225,7 @@ export default function CarrierTenderView() {
                       step="0.01"
                       value={rate}
                       onChange={e => setRate(e.target.value)}
+                      onWheel={e => e.currentTarget.blur()}
                       required
                       placeholder="Enter your rate"
                     />
